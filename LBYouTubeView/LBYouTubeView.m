@@ -106,13 +106,11 @@ static NSString* const kLBYouTubeViewErrorDomain = @"LBYouTubeViewErrorDomain";
 }
 
 - (void) didTapView:(id)sender{
-        NSLog(@"tapped:  %@", self.parsedYouTubeURL);
+    NSLog(@"tapped:  %@", self.parsedYouTubeURL);
     if (self.parsedYouTubeURL) {
         [self _loadVideoWithContentOfURL:self.parsedYouTubeURL];
         [self play];
     }
-
-
 }
 
 #pragma mark -
@@ -203,7 +201,25 @@ static NSString* const kLBYouTubeViewErrorDomain = @"LBYouTubeViewErrorDomain";
 
 -(void)_controllerPlaybackStateChanged:(NSNotification *)__unused notification {
     MPMoviePlaybackState currentState = self.controller.playbackState;
-    if (currentState == MPMoviePlaybackStateStopped || currentState == MPMoviePlaybackStatePaused || currentState == MPMoviePlaybackStateInterrupted) {
+    if (shouldAutomaticallyStartPlaying == NO) {
+        // thumbnail - beginning of movie
+        UIImage *thumbnail = [self.controller thumbnailImageAtTime:0 timeOption:MPMovieTimeOptionNearestKeyFrame];
+        UIImageView *thumbnailView = [[UIImageView alloc] initWithFrame:self.frame];
+        thumbnailView.image = thumbnail;
+        thumbnailView.contentMode = UIViewContentModeScaleAspectFit;
+        [self addSubview:thumbnailView];
+        // play button
+        NSString *fullpath = [[[NSBundle mainBundle] bundlePath] stringByAppendingString:@"/play.png"];
+        UIImageView *playView = [[UIImageView alloc] initWithFrame:self.frame];
+        playView.image = [UIImage imageWithContentsOfFile:fullpath];
+        playView.contentMode = UIViewContentModeCenter;
+        [self addSubview:playView];
+        // stop playing video
+        [self.controller stop];
+        // skip code above next time
+        shouldAutomaticallyStartPlaying = YES;
+    }
+    else if (currentState == MPMoviePlaybackStateStopped || currentState == MPMoviePlaybackStatePaused || currentState == MPMoviePlaybackStateInterrupted) {
         [self _didStopPlayingYouTubeVideo:currentState];
     }
 }
@@ -275,7 +291,7 @@ static NSString* const kLBYouTubeViewErrorDomain = @"LBYouTubeViewErrorDomain";
         [self _failedExtractingYouTubeURLWithError:[NSError errorWithDomain:kLBYouTubeViewErrorDomain code:1 userInfo:[NSDictionary dictionaryWithObject:@"Couldn't download the HTML source code. URL might be invalid." forKey:NSLocalizedDescriptionKey]]];
         return;
     }
-
+    
     NSString *JSONStart = nil;
     NSString *JSONStartFull = @"ls.setItem('PIGGYBACK_DATA', \")]}'";
     NSString *JSONStartShrunk = [JSONStartFull stringByReplacingOccurrencesOfString:@" " withString:@""];
@@ -283,7 +299,7 @@ static NSString* const kLBYouTubeViewErrorDomain = @"LBYouTubeViewErrorDomain";
         JSONStart = JSONStartFull;
     else if ([html rangeOfString:JSONStartShrunk].location != NSNotFound)
         JSONStart = JSONStartShrunk;
-
+    
     if (JSONStart != nil) {
         NSScanner* scanner = [NSScanner scannerWithString:html];
         [scanner scanUpToString:JSONStart intoString:nil];
@@ -333,7 +349,7 @@ static NSString* const kLBYouTubeViewErrorDomain = @"LBYouTubeViewErrorDomain";
     else {
         [self _failedExtractingYouTubeURLWithError:[NSError errorWithDomain:kLBYouTubeViewErrorDomain code:3 userInfo:[NSDictionary dictionaryWithObject:@"The JSON data could not be found." forKey:NSLocalizedDescriptionKey]]];
     }
-
+    
     [self _cleanDownloadUp];
 }
 
